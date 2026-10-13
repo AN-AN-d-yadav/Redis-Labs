@@ -74,3 +74,30 @@ def update_product(request, product_id):
         "message": "Product updated",
         "id": product.id,
     })
+
+
+@api_view(["GET"])
+def limited_endpoint(request):
+    client_ip = request.META.get(
+        "REMOTE_ADDR", "unknown"
+    )
+
+    key = f"rate-limit:{client_ip}"
+
+    # Atomic increment in Redis
+    count = cache.add(key, 1, timeout=60)
+
+    if not count:
+        count = cache.incr(key)
+
+    if count > 10:
+        return Response(
+            {"error": "Rate limit exceeded"},
+            status=429,
+        )
+
+    return Response({
+        "message": "Request allowed",
+        "requests_in_window": count,
+        "limit": 10,
+    })
